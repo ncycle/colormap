@@ -1,57 +1,57 @@
 import png
 import colorsys
 
-pop = png.Reader('population_map.png')
-world = png.Reader('world.png')
-bathy = png.Reader('bathymetry.png')
-
-rgbpop = pop.asRGB()
-rgbbath = bathy.asRGB()
+bathyrgb = png.Reader('bathymetry.png').asRGB()[2]
 
 #### DEFINE A COLOR PALETTE MAPPING
 colors = set()
-popcolors = set()
 for n in range(1800):
-    bline = next(rgbbath[2])
-    pline = next(rgbpop[2])
+    bline = next(bathyrgb)
     for i in range(3600):
         base = i*3
         cstring = str(bline[base]) + "," + str(bline[base+1]) + "," + str(bline[base+2])
+        cstring = str(bline[base]).zfill(3) + "," + str(bline[base+1]).zfill(3) + "," + str(bline[base+2]).zfill(3)
         colors.add(cstring)
-        pstring = str(pline[base]) + "," + str(pline[base+1]) + "," + str(pline[base+2])
-        popcolors.add(pstring)
+colors = [",".join([str(int(y)) for y in x.split(",")]) for x in sorted(list(colors))]
 
-rgb = [[int(x) for x in color.split(",")] for color in colors]
-hls = [colorsys.rgb_to_hls(*x) for x in rgb]
-#hls = [colorsys.rgb_to_hls(*[x / 256 for x in elt]) for elt in rgb]
-#hlsv = sorted(hls, key=lambda x: x[2])
-#rgbv = [[int(y * 256) for y in colorsys.hls_to_rgb(*x)] for x in hlsv]
-#
-#for x in rgb:
-#    if x not in rgbv:
-#        print(x)
-#
-#for y in rgbv:
-#    if y not in rgb:
-#        print(y)
-#
-#exit()
+shrink4 = {}
+colormap = []
+for color in colors:
+    rgb = [int(x) for x in color.split(",")]
+    hls = list(colorsys.rgb_to_hls(*[x / 256 for x in rgb]))
+    hls_dark_old = [hls[0], hls[1] * 0.85, hls[2]]
+    hls_dark = [hls[0], hls[1] * 0.8, hls[2] if hls[1] < .5 else hls[2] * .75]
+    rgb_dark = [int(x * 256) for x in colorsys.hls_to_rgb(*hls_dark)]
+    colormap.append([color, hls[2], ",".join([str(x) for x in rgb_dark])])
+    shrink4[color] = ",".join([str(x) for x in rgb_dark])
 
-hlsv = hls
-hls2 = [(x[0],x[1] * .85, x[2])  for x in hlsv]
-hls3 = [(x[0],x[1], x[2]) for x in hlsv]
-rgb2 = [[int(y) for y in colorsys.hls_to_rgb(*x)] for x in hls2]
-rgb3 = [[int(y) for y in colorsys.hls_to_rgb(*x)] for x in hls3]
-shrink2 = {",".join([str(x) for x in rgb[i]]): ",".join([str(y) for y in rgb2[i]]) for i in range(len(rgb))}
-shrink3 = {",".join([str(x) for x in rgb[i]]): ",".join([str(y) for y in rgb3[i]]) for i in range(len(rgb))}
+#sorted_colormap = sorted(colormap, key=lambda x: x[1])
+sorted_colormap = colors
 
+def line(start, stop, i):
+        return start + (stop - start) * i / 256
+
+def para(top, bottom, i):
+    a = (top - bottom) / 127.5**2
+    return a * (i - 127.5) + bottom
+
+
+c = [0.55, 0.67, 0.1, 0.5, 0.9, 1]
+c = [0.57, 0.63, 0.2, 0.7, 0.8, 0.9]
+c = [0.56, 0.59, 0.0, 0.7, 0.5, 0.8]
+new_palette = [[int(x * 256) for x in colorsys.hls_to_rgb(para(c[0],c[1],i), line(c[2],c[3],i), para(c[4],c[5],i))] for i in range(256)]
+new_palette = list(new_palette)
+
+palmap = {}
+for i in range(len(sorted_colormap)):
+    palmap[sorted_colormap[i]] = ",".join([str(x) for x in new_palette[i]])
 
 ### MERGE OCEAN INTO POPULATION MAP
 
 
 pop = png.Reader('population_map.png').asRGB()[2]
 bathy = png.Reader('bathymetry.png').asRGB()[2]
-highlights = png.Reader('merged9f2.png').asRGB()[2]
+highlights = png.Reader('highlight-lakes-caspian.png').asRGB()[2]
 world = png.Reader('world.png').asRGB()[2]
 
 wblue = [27,66,121]
@@ -83,13 +83,14 @@ for n in range(1800):
                 currline.extend([225,229,233])  # remapped lightest-er water color
             else:  # have bathymetry data, darken it
                 idx = ",".join([str(x) for x in bpixel])
-                mapped = [int(x) for x in shrink3[idx].split(",")]
+                mapped = [int(x) for x in shrink4[idx].split(",")]
+                mapped = [int(x) for x in palmap[idx].split(",")]
                 currline.extend(mapped)
         else: # use population data
-            #if ppixel == [255,246,234]:
-            #    currline.extend([242,238,238])  # darken the empty land a bit
-            #    continue
+            if ppixel == [255,246,234]:
+                currline.extend([242,238,238])  # darken the empty land a bit
+                continue
             currline.extend(ppixel)
     newmap.append(currline)
 
-png.from_array(newmap, 'RGB').save('merged9h.png')
+png.from_array(newmap, 'RGB').save('merged9p0.png')
