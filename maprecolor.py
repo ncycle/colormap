@@ -1,7 +1,27 @@
 import png
+import os
 import colorsys
 
 bathyrgb = png.Reader('bathymetry.png').asRGB()[2]
+
+### DETERMINE FILENAME
+def get_max_increment(basename):
+    required_length = len(basename + '000' + '.txt')
+    matching_files = [f for f in os.listdir('.') if basename in f and len(f) == required_length]
+    if len(matching_files) == 0:
+        return 0
+    maximum = max(matching_files)[len(basename):-4]
+    return int(maximum) + 1
+
+imagebase = 'merged_'
+specbase = 'mapspec_'
+iteration = str(max(get_max_increment(imagebase), get_max_increment(specbase))).zfill(3)
+imagename = imagebase + iteration + '.png'
+specname = specbase + iteration + '.txt'
+
+print("Generating new image " + imagename + " with specification " + specname)
+
+
 
 #### DEFINE A COLOR PALETTE MAPPING
 colors = set()
@@ -98,7 +118,7 @@ for n in range(1800):
             currline.extend(ppixel)
     newmap.append(currline)
 
-png.from_array(newmap, 'RGB').save('merged9q6.png')
+png.from_array(newmap, 'RGB').save(imagename)
 
 # [225, 229, 233]
 # [138, 186, 242]
