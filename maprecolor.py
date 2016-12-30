@@ -38,7 +38,7 @@ def para(top, bottom, i):
 
 c = [0.55, 0.67, 0.1, 0.5, 0.9, 1]
 c = [0.57, 0.63, 0.2, 0.7, 0.8, 0.9]
-c = [0.56, 0.59, 0.0, 0.7, 0.5, 0.8]
+c = [0.56, 0.59, 0.0, 0.75, 0.5, 0.8]
 new_palette = [[int(x * 256) for x in colorsys.hls_to_rgb(para(c[0],c[1],i), line(c[2],c[3],i), para(c[4],c[5],i))] for i in range(256)]
 new_palette = list(new_palette)
 
@@ -75,12 +75,17 @@ for n in range(1800):
         hpixel = [hline[base], hline[base+1], hline[base+2]]
         wpixel = [wline[base], wline[base+1], wline[base+2]]
         if hpixel == green:  # specify color of lakes
-            currline.extend(popwater)
+#            currline.extend(popwater)
+             currline.extend(new_palette[-1])
 #            currline.extend(wblue)
         elif ppixel == popwater:
 #            currline.extend(wpixel)
             if bpixel == [0,0,0]:  # bathymetry map identifies this as land
-                currline.extend([225,229,233])  # remapped lightest-er water color
+                if n > 1436:
+#                    currline.extend([225,229,233])  # lightest-er color in original palette (glaciers)
+                    currline.extend([223, 227, 235])
+                else: 
+                    currline.extend(new_palette[-1])  # lightest color in new palette (rivers and shoreline)
             else:  # have bathymetry data, darken it
                 idx = ",".join([str(x) for x in bpixel])
                 mapped = [int(x) for x in shrink4[idx].split(",")]
@@ -93,4 +98,8 @@ for n in range(1800):
             currline.extend(ppixel)
     newmap.append(currline)
 
-png.from_array(newmap, 'RGB').save('merged9p0.png')
+png.from_array(newmap, 'RGB').save('merged9q6.png')
+
+# [225, 229, 233]
+# [138, 186, 242]
+# [182, 207, 237]
