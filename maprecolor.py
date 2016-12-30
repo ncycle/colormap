@@ -24,47 +24,67 @@ print("Generating new image " + imagename + " with specification " + specname)
 
 
 #### DEFINE A COLOR PALETTE MAPPING
-colors = set()
-for n in range(1800):
-    bline = next(bathyrgb)
-    for i in range(3600):
-        base = i*3
-        cstring = str(bline[base]) + "," + str(bline[base+1]) + "," + str(bline[base+2])
-        cstring = str(bline[base]).zfill(3) + "," + str(bline[base+1]).zfill(3) + "," + str(bline[base+2]).zfill(3)
-        colors.add(cstring)
-colors = [",".join([str(int(y)) for y in x.split(",")]) for x in sorted(list(colors))]
+def source_ocean_colorset(bathyrgb):
+    # find all unique colors defined in the original image
+    colors = set()
+    for n in range(1800):
+        bline = next(bathyrgb)
+        for i in range(3600):
+            base = i*3
+            cstring = ",".join([str(bline[idx]).zfill(3) for idx in [base, base + 1, base + 2]])
+            colors.add(cstring)
+    colors = [",".join([str(int(y)) for y in x.split(",")]) for x in sorted(list(colors))]
+    return colors
 
-shrink4 = {}
-colormap = []
-for color in colors:
-    rgb = [int(x) for x in color.split(",")]
-    hls = list(colorsys.rgb_to_hls(*[x / 256 for x in rgb]))
-    hls_dark_old = [hls[0], hls[1] * 0.85, hls[2]]
-    hls_dark = [hls[0], hls[1] * 0.8, hls[2] if hls[1] < .5 else hls[2] * .75]
-    rgb_dark = [int(x * 256) for x in colorsys.hls_to_rgb(*hls_dark)]
-    colormap.append([color, hls[2], ",".join([str(x) for x in rgb_dark])])
-    shrink4[color] = ",".join([str(x) for x in rgb_dark])
+source_colors = source_ocean_colorset(bathyrgb)
 
-#sorted_colormap = sorted(colormap, key=lambda x: x[1])
-sorted_colormap = colors
+def shrink_colors_hls(source_colors):
+    shrink = {}
+    colormap = []
+    for color in source_colors:
+        rgb = [int(x) for x in color.split(",")]
+        hls = list(colorsys.rgb_to_hls(*[x / 256 for x in rgb]))
+#        hls_dark_old = [hls[0], hls[1] * 0.85, hls[2]]
+        hls_dark = [hls[0], hls[1] * 0.8, hls[2] if hls[1] < .5 else hls[2] * .75]
+        rgb_dark = [int(x * 256) for x in colorsys.hls_to_rgb(*hls_dark)]
+        colormap.append([color, hls[2], ",".join([str(x) for x in rgb_dark])])
+        shrink[color] = ",".join([str(x) for x in rgb_dark])
+    return shrink
+
+shrink4 = shrink_colors_hls(source_colors)
 
 def line(start, stop, i):
-        return start + (stop - start) * i / 256
+    return start + (stop - start) * i / 256
 
 def para(top, bottom, i):
     a = (top - bottom) / 127.5**2
     return a * (i - 127.5) + bottom
 
 
-c = [0.55, 0.67, 0.1, 0.5, 0.9, 1]
-c = [0.57, 0.63, 0.2, 0.7, 0.8, 0.9]
-c = [0.56, 0.59, 0.0, 0.75, 0.5, 0.8]
-new_palette = [[int(x * 256) for x in colorsys.hls_to_rgb(para(c[0],c[1],i), line(c[2],c[3],i), para(c[4],c[5],i))] for i in range(256)]
-new_palette = list(new_palette)
+#def generate_colormap(source_map, hue_func, lightness_func, sat_func):
+def generate_palette(c):
+    new_palette = [[int(x * 256) for x in colorsys.hls_to_rgb(para(c[0],c[1],i), line(c[2],c[3],i), para(c[4],c[5],i))] for i in range(256)]
+    return list(new_palette)
 
-palmap = {}
-for i in range(len(sorted_colormap)):
-    palmap[sorted_colormap[i]] = ",".join([str(x) for x in new_palette[i]])
+def generate_colormap(source_map, new_palette):
+    palmap = {}
+    for i in range(len(source_map)):
+        palmap[source_map[i]] = ",".join([str(x) for x in new_palette[i]])
+    return palmap
+
+
+# spec = [hue_min, hue_max, light_min, light_max, sat_min, sat_max]
+#c = [0.55, 0.67, 0.1, 0.5, 0.9, 1]
+#c = [0.57, 0.63, 0.2, 0.7, 0.8, 0.9]
+c = [0.56, 0.59, 0.0, 0.75, 0.5, 0.8]
+new_palette = generate_palette(c)
+palmap = generate_colormap(source_colors, new_palette)
+#new_palette = [[int(x * 256) for x in colorsys.hls_to_rgb(para(c[0],c[1],i), line(c[2],c[3],i), para(c[4],c[5],i))] for i in range(256)]
+#new_palette = list(new_palette)
+#
+#palmap = {}
+#for i in range(len(sorted_colormap)):
+#    palmap[sorted_colormap[i]] = ",".join([str(x) for x in new_palette[i]])
 
 ### MERGE OCEAN INTO POPULATION MAP
 
